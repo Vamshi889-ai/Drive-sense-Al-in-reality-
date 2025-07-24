@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Driving Game - Eslavath Vamshi</title>
+<style>
+body { margin:0; background:#222; color:#fff; font-family:sans-serif; text-align:center; }
+canvas { background:#444; display:block; margin:20px auto; border:2px solid #fff; }
+#score { font-size:20px; margin:10px; }
+#voice { font-size:18px; color:yellow; margin:5px; }
+button { padding:8px 15px; margin-top:10px; }
+</style>
+</head>
+<body>
+<h2>AI Driving Game</h2>
+<canvas id="gameCanvas" width="300" height="500"></canvas>
+<div id="score">Score: 0</div>
+<div id="voice">AI: Ready</div>
+<button id="muteBtn">Mute</button>
+
+<script>
+// --- Player & Lane setup ---
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+const lanes=[50,125,200];
+let player={x:125,y:400,width:50,height:80};
+let enemies=[];
+let score=0, muted=false, lastVoice=0;
+const voiceCooldown=2000;
+
+// --- Images (Base64 car + road) ---
+const playerImg=new Image();
+playerImg.src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABgUlEQVR4nO3bQQ6CMBQE0KK7nC2b8bn+Dn+XxMCYGMg5/vkMZ1pDTvGeAQAAAAAAAAAAAADALq+JhVwQEv7k9u8bJDcfs6pNHdwIMHsCJW0CGJcILSVv6iy1MzFhSC6DQUCrgnYIEiVgCQ+oLO+w1pclmgZJh5DuWBzQ+w7oDfhAbACoAV2ZtmDbLzLjc4+AWmBoKrp1LgXHzAv8cwKAHedXoXYBdwWwDTssJeotAVzCkINaCqweMKDTC0wBYy68+eW3A3MF1GBAXwaIhhZ6AK1g4oXraDjBeYaFqf6A1RjgIGJ9BOqzhRa4Fgf+fp7uQnN4D9YbeqPwv8hTwAAAAAAAAAAAAAA4CtdH3evhxD2/7jqAAAAAElFTkSuQmCC";
+
+const enemyImg=new Image();
+enemyImg.src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABeElEQVR4nO3bQQ6CMBQE0KK7nC2b8bn+Dn+XxMCYGMg5/vkMZ1pDTvGeAQAAAAAAAAAAAADALq+JhVwQEv7k9u8bJDcfs6pNHdwIMHsCJW0CGJcILSVv6iy1MzFhSC6DQUCrgnYIEiVgCQ+oLO+w1pclmgZJh5DuWBzQ+w7oDfhAbACoAV2ZtmDbLzLjc4+AWmBoKrp1LgXHzAv8cwKAHedXoXYBdwWwDTssJeotAVzCkINaCqweMKDTC0wBYy68+eW3A3MF1GBAXwaIhhZ6AK1g4oXraDjBeYaFqf6A1RjgIGJ9BOqzhRa4Fgf+fp7uQnN4D9YbeqPwv8hTwAAAAAAAAAAAAAA4CtdH3evhxD2/7jqAAAAAElFTkSuQmCC";
+
+// --- Voice ---
+function speak(msg){
+  if(muted) return;
+  document.getElementById("voice").innerText="AI: "+msg;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance(msg));
+}
+
+// --- Spawn enemies ---
+function spawnEnemy(){
+  let lane=lanes[Math.floor(Math.random()*3)];
+  enemies.push({x:lane,y:-80});
+}
+
+// --- Draw frame ---
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Player
+  ctx.drawImage(playerImg,player.x,player.y,player.width,player.height);
+
+  // Enemies
+  enemies.forEach((e,i)=>{
+    e.y+=4;
+    ctx.drawImage(enemyImg,e.x,e.y,50,80);
+
+    // Voice only if same lane & close
+    if(e.x===player.x && e.y+80>=player.y-120 && e.y<player.y && Date.now()-lastVoice>voiceCooldown){
+      if(player.x===50) speak("Car ahead, take right and slow down");
+      else if(player.x===200) speak("Car ahead, take left and slow down");
+      else speak("Car ahead, choose safe side");
+      lastVoice=Date.now();
+    }
+
+    // Collision
+    if(player.x<e.x+50 && player.x+50>e.x && player.y<e.y+80 && player.y+80>e.y){
+      speak("Collision! Game Over");
+      alert("Game Over! Score: "+score);
+      reset();
+    }
+
+    // Remove off-screen
+    if(e.y>500){
+      enemies.splice(i,1);
+      score++;
+      document.getElementById("score").innerText="Score: "+score;
+    }
+  });
+
+  requestAnimationFrame(draw);
+}
+
+// --- Reset game ---
+function reset(){
+  enemies=[];
+  score=0;
+  player.x=125;
+  document.getElementById("score").innerText="Score: 0";
+}
+
+// --- Controls ---
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowLeft" && player.x>50) player.x-=75;
+  if(e.key==="ArrowRight" && player.x<200) player.x+=75;
+});
+
+// Touch for mobile
+canvas.addEventListener("touchstart",e=>{
+  let touchX=e.touches[0].clientX - canvas.getBoundingClientRect().left;
+  if(touchX<player.x) player.x-=75; else player.x+=75;
+});
+
+// Mute button
+document.getElementById("muteBtn").addEventListener("click",()=>{
+  muted=!muted;
+  document.getElementById("muteBtn").innerText=muted?"Unmute":"Mute";
+});
+
+setInterval(spawnEnemy,1500);
+draw();
+</script>
+</body>
+</html>
